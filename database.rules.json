@@ -1,0 +1,24 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "devices": {
+      "mindpal": {
+        "config": {
+          ".read": "auth != null && (auth.uid === 'OWNER_UID' || auth.uid === 'DEVICE_UID')",
+          ".write": "auth != null && auth.uid === 'OWNER_UID'"
+        },
+        "status": {
+          ".read": "auth != null && auth.uid === 'OWNER_UID'",
+          ".write": "auth != null && auth.uid === 'DEVICE_UID'"
+        },
+        "commands": {
+          "resetGame": {
+            ".read": "auth != null && auth.uid === 'DEVICE_UID'",
+            ".write": "auth != null && auth.uid === 'OWNER_UID'"
+          }
+        }
+      }
+    }
+  }
+}
