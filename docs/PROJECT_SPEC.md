@@ -1,3 +1,5 @@
+> **MindPal v8 upgrade notice:** For scheduled multi-alarm behavior and data model, read `ALARM_SPEC.md`; it supersedes the v7 alarm section below.
+
 # MindPal v7 — Technical Project Specification (AI Agent Context)
 
 ## Problem / purpose

@@ -1,3 +1,5 @@
+> **MindPal v8:** First follow `ALARM_SETUP_ID.md` when upgrading alarms. This document describes original v7 setup.
+
 # Mulai dari nol — MindPal v7
 
 ## 1. Sambungan tombol baru

@@ -1,51 +1,70 @@
-# MindPal v7 — Companion + Firebase Dashboard
+# MindPal v9 — Box Breathing + Improved Button UX
 
-An ESP32-WROVER desk companion with OLED 128x64, MAX30102 PPG, WS2812 ring, TTP223, passive buzzer, and **two physical buttons**. This is an extension of MindPal Pomodoro v6; the animated face system and Pomodoro remain in place.
+Versi ini melanjutkan firmware **v8 Alarm Clock**. Perubahan dipusatkan pada input dua tombol, OLED 128×64, LED WS2812, dan pengalaman Fun Clicker. **Dashboard React/Firebase dan Firebase Security Rules dari v8 tidak diubah.**
 
-## Project structure
+## Firmware
 
-- `firmware/MindPal_v7/MindPal_v7.ino` — ESP32 firmware; existing animated faces, Pomodoro, game mode, audible/quiet button, Firebase sync
-- `firmware/MindPal_v7/MindPal_Cloud.h` — Wi-Fi/Firebase API settings and TLS trusted roots
-- `web/` — Vite + React + Firebase Authentication + Realtime Database dashboard
-- `database.rules.json` — restricted RTDB access (replace both UID placeholders)
-- `docs/FIREBASE_SETUP.md` — setup from scratch
-- `docs/PROJECT_SPEC.md` — system architecture / requirements, intended for coding agents
-- `docs/TEST_PLAN.md` — integration and hardware tests
+Buka langsung:
 
-## Wiring
+`firmware/MindPal_v9_BoxBreathing/MindPal_v9_BoxBreathing.ino`
 
-| Component | ESP32 | Notes |
-|---|---|---|
-| SSD1306 OLED SDA, MAX30102 SDA | GPIO21 | Shared I2C |
-| SSD1306 OLED SCL, MAX30102 SCL | GPIO22 | Shared I2C |
-| WS2812 ring DIN (verify your PCB's `D1` vs `D0` marking) | GPIO25 | 220Ω series resistor; proper 3.3→5 V buffer recommended |
-| Passive buzzer module IO | GPIO26 | 3.3V module; ensure module driver compatibility |
-| TTP223 IO | GPIO27 | TTP223 VCC to 3.3V |
-| Pomodoro button | GPIO33 → GND | INPUT_PULLUP |
-| **New mode button** | **GPIO32 → GND** | INPUT_PULLUP; only two opposite switch sides used |
+Pastikan `MindPal_Cloud.h` berada di folder yang sama. Jangan membuka sketch kosong lalu menambahkan `.ino` kedua—itu menimbulkan duplikasi `setup()` dan `loop()`.
 
-Do not feed 5 V to any ESP32 GPIO. WS2812 ring uses separate adequate 5 V supply and common ground. Disconnect power before re-wiring.
+## Kontrol
 
-## Hardware interactions
+| Input | Aksi |
+|---|---|
+| GPIO33 (utama) klik | Statistik ketika idle; countdown saat Pomodoro aktif |
+| GPIO33 tahan ≥2 detik | Start/Stop Pomodoro (circular progress) |
+| GPIO32 (kedua) klik | Silent/Normal + konfirmasi fullscreen OLED |
+| GPIO32 tahan ≥2 detik | Start/Stop Fun Clicker (circular progress) |
+| **GPIO33+GPIO32 bersamaan, tahan 5 detik** | **Toggle Box Breathing (4-4-4-4)** (circular progress 5 detik) |
+| Sentuh TTP223 saat Fun Clicker | Tambah 1 poin; reaksi wajah imut; rayakan milestone |
+| Saat alarm terjadwal berdering | GPIO33 = Snooze; GPIO32 = Dismiss (prioritas utama) |
 
-- Main button GPIO33: click to view statistics/timer; hold ≥2 s to start/stop Pomodoro.
-- New button GPIO32: click to toggle SILENT vs NORMAL; hold ≥2 s to enter/exit Fun Clicker.
-- Game mode: every *press edge* on the TTP223 scores one tap, changes facial reaction, and displays a small count below the face. At every configurable milestone, show sparkling celebration and play a short jingle unless silent.
-- During game mode, all automatic messages are suspended. Live Pomodoro countdown continues if active (but is temporarily hidden by the game face).
-- Focus test times: 30 s focus, 12 s short break, 20 s long break. Change `TEST_MODE` to `false` for real timing.
-- Silent mode mutes chimes and synthesized vowel notes but never disables OLED or LED.
-- Tap scores and best record persist in ESP32 NVS, and status is periodically sent to Firebase.
+Tekan **dua tombol berdekatan waktunya** agar combo mulai sebelum aksi tahan individual (2 detik). Ketika combo dideteksi, kedua tombol terkunci sampai keduanya dilepas; melepas sebelum 5 detik tidak memicu Pomodoro, Game, atau silent secara tidak sengaja.
 
-## Important compatibility notes
+## Box Breathing
 
-- Dashboard `Alarm words` are **saved only**, not yet shown by firmware alarm screens. Alarm *tones* do synchronize.
-- The web displays current/lifetime Pomodoro totals; **daily historical time-series and per-day progress tracking are not implemented in this prototype**.
-- Dashboard speech word lists support up to 12 messages per mode, 75 characters per message. OLED wraps lines using existing v6 renderer.
-- Mood-specific word lists replace idle speech list when a configuration is downloaded. Mood color is stored in Firebase but the OLED is monochrome; LED auto effect uses the selected mood color while idle.
-- Dashboard is **not deployed** and needs Firebase setup. Wi-Fi sync is periodic HTTPS (10 s config, 15 s telemetry) and can cause brief display pauses. Fully asynchronous cloud tasks are a future improvement.
-- The anonymous device account must remain enabled in Firebase Auth; deleting that user requires re-pairing device (reset stored `mpcloud` namespace or reflash with NVS erase).
-- Not a medical heart-rate monitor; BPM is an approximate recreational/educational PPG reading.
+- Teknik: **4 detik tarik napas → 4 detik tahan → 4 detik hembuskan → 4 detik tahan**.
+- OLED: titik bergerak mengikuti sisi kotak, karakter bulat mengembang/menyusut, countdown besar, nomor putaran.
+- LED ring: cahaya lembut bergerak sesuai fase; tidak memakai nada supaya tidak mengganggu.
+- Box breathing berlangsung hingga **kedua tombol ditahan 5 detik lagi**. Pomodoro (jika aktif) berjalan di belakang; pembacaan sensor tetap berlangsung.
+- Dalam mode ini tombol tunggal dan touch/game dicegah mengubah fungsi; alarm jam dari Firebase tetap mendapat prioritas di OLED dan buzzer.
+- Ini hanya panduan pernapasan santai, bukan diagnosis atau terapi medis. Jangan memaksakan menahan napas; hentikan jika pusing atau tidak nyaman.
 
-## Getting started
+Durasi fase diatur di sketch:
 
-Follow `docs/FIREBASE_SETUP.md`, then `docs/TEST_PLAN.md`. To test offline without Firebase, leave Cloud.h credentials empty; the firmware still runs locally.
+```cpp
+constexpr uint32_t BREATH_PHASE_MS = 4000UL;
+constexpr uint32_t DUAL_HOLD_MS = 5000UL;
+```
+
+## Fun Clicker
+
+- Hilang garis pemisah panjang di bawah wajah; counter tampil sebagai teks kecil mengambang tanpa garis.
+- Tiap tap memberi sparkle dan reaksi wajah menyenangkan (*joy, laughing, cat, squint grin*).
+- Setiap kelipatan `gameTarget` (default 30, dapat diubah dari dashboard) memicu animasi bintang + jingle (kecuali Silent) + **rainbow LED** berpadu sparkling selama ~2,6 detik, mirip perayaan Pomodoro.
+
+## Software / dependensi
+
+Firmware membutuhkan: **Adafruit SSD1306**, **Adafruit GFX**, **Adafruit NeoPixel**, **SparkFun MAX3010x**, dan **ArduinoJson v7**. ESP32 core sudah menyediakan `WiFi`, `Wire`, `Preferences`, `HTTPClient` dan `time`.
+
+Untuk offline, biarkan konfigurasi cloud kosong di `MindPal_Cloud.h`; jangan menghapus file header. Untuk Firebase gunakan konfigurasi pribadi dari perangkat lokal, **tidak disertakan** dalam paket ini.
+
+## Wiring — tidak ada perubahan
+
+- OLED & MAX30102 SDA=GPIO21, SCL=GPIO22.
+- WS2812 data GPIO25, supply 5V memadai, semua GND bersama; resistor data 220Ω bisa dipakai untuk uji, level shifter 3.3V ke 5V tetap direkomendasikan untuk keandalan.
+- Passive buzzer modul IO GPIO26.
+- Touch TTP223 IO GPIO27.
+- Tombol utama GPIO33 ke GND; tombol kedua GPIO32 ke GND (keduanya `INPUT_PULLUP`).
+
+## Status verifikasi
+
+- `g++ -fsyntax-only` dengan stub API Arduino/periferal: **lulus**.
+- Simulasi C++ input tombol, kombinasi hold, pembatalan, silent, Pomodoro, game: **lulus**.
+- **Belum** dikompilasi dengan Arduino-ESP32 asli dan **belum** diuji pada ESP32/OLED/LED ring fisik.
+- UI breathing dan animasi diprogram secara prosedural, bukan dinilai dari footage hardware aktual.
+
+Lihat `docs/BOX_BREATHING_V9.md` dan `docs/TEST_PLAN_V9.md` untuk detail.
