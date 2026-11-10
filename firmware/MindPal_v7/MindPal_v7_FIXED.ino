@@ -1,5 +1,5 @@
 /*
- MindPal Pomodoro TEST v6 — Cute Morphing Face + Readable Multi-Line Speech.
+ MindPal v7 FIXED — ESP32 Pomodoro + Fun Clicker + Firebase (optional).
  Based on MindPal Animated v3. Original procedural face and chimes.
  SDA=21, SCL=22, WS2812 DIN=25, passive buzzer IO=26,
  TTP223 IO=27, tactile button GPIO33 -> GND (INPUT_PULLUP).
@@ -70,6 +70,11 @@ struct SpeechConfig {
 };
 
 // Prototype eksplisit untuk fungsi dengan parameter tipe custom.
+// Deklarasi eksplisit mencegah prototype otomatis Arduino IDE
+// ditempatkan sebelum enum dan tipe library dikenal.
+SpeechMode modeFromPomodoro();
+FaceMood currentFaceMood(uint32_t now);
+void copyMessages(JsonVariantConst array, uint8_t mode);
 void showOverlay(OverlayType kind);
 void playTune(const Note *notes, size_t count);
 void cancelSpeech();
